@@ -6,18 +6,49 @@ showdir=$1
 testvar=$2
 
 
+#check if JQ installed
+if ! type ffmpeg1 &> /dev/null
+then
+echo "ffmpeg is not installed"
+exit 1
+fi
+
 if [ "$showdir" = "test" ]
 then
 testvar=test
 fi
 
 
-#insert show path here.
+#insert show path here to override. Uncomment the next line
 #showdir="/path/to/show/"
+
+
+help_screen() {
+    echo ""
+    echo "    Usage: ./episide_splitter.sh \"/path/to/dir/\" [test]"
+    echo "    Requires ffmpeg"
+    echo "    Use Test to see outputs. Should be 12 minimum numbers"
+    echo "    Adjust blackdetect & pix_th if you dont get 12 or more numbers"
+    echo "    Point to a source directoy. Must have \/\" at end of path."
+    echo "    Will output files to current directory if permissions to write exist."
+    echo "    Cuts may not be perfect. It is all best guess."
+    echo ""
+    }
+
+#if [[ "$showdir" = "?" ]]
+#then
+#echo "Directory is not valid"
+#help_screen
+#exit 1
+#fi
+
+
+
 
 if [[ ! -d "$showdir" ]]
 then
 echo "Directory is not valid"
+help_screen
 exit 1
 fi
 
