@@ -25,6 +25,11 @@ fi
 
 help_screen() {
     echo ""
+    echo "    This script will split an episode into 2 parts, keeping the opening and closing creditgs."
+    echo "    It will append the opening and closing to the appropriate missing piece."
+    echo "    This is mostly designed because of many kids shows having 2 parts in 1 episode."
+    echo "    but TVDB admins refuse to accept that and make each episode separate"
+    echo ""
     echo "    Usage: ./episide_splitter.sh \"/path/to/dir/\" [test]"
     echo "    Requires ffmpeg"
     echo "    Use Test to see outputs. Should be 12 minimum numbers"
