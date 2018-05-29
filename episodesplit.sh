@@ -7,7 +7,7 @@ testvar=$2
 
 
 #check if JQ installed
-if ! type ffmpeg1 &> /dev/null
+if ! type ffmpeg &> /dev/null
 then
 echo "ffmpeg is not installed"
 exit 1
