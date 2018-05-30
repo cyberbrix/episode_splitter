@@ -1,26 +1,42 @@
 #!/bin/bash
 
 #This requires FFMPEG
-
-showdir=$1
-testvar=$2
-
-
-#check if JQ installed
+#check if FFMPEG installed
 if ! type ffmpeg &> /dev/null
 then
 echo "ffmpeg is not installed"
 exit 1
 fi
 
-if [ "$showdir" = "test" ]
-then
-testvar=test
-fi
 
+#default values
+blackduration="0.5"
+blackthreshold="0.0"
 
-#insert show path here to override. Uncomment the next line
-#showdir="/path/to/show/"
+for z in "$@"
+do
+case $z in
+    -p=*)
+    showdir="${z#*=}"
+    shift # past argument=value
+    ;;
+    --test)
+    testvar=test
+    shift # past argument with no value
+    ;;
+    -l=*)
+    blackduration="${z#*=}"
+    shift # past argument=value
+    ;;
+    -b=*)
+    blackthreshold="${z#*=}"
+    shift # past argument=value
+    ;;
+    *)
+          # unknown option
+    ;;
+esac
+done
 
 
 help_screen() {
@@ -30,51 +46,58 @@ help_screen() {
     echo "    This is mostly designed because of many kids shows having 2 parts in 1 episode."
     echo "    but TVDB admins refuse to accept that and make each episode separate"
     echo ""
-    echo "    Usage: ./episide_splitter.sh \"/path/to/dir/\" [test]"
+    echo "    Example usage: ./episide_splitter.sh -p=\"/path/to/dir/\" [--test]"
+    echo "    Arguments:"
+    echo "    -p=\"/path/to/dir\"  What dir containts the show. include quotes and trailing /"
+    echo "    --test  Enables test mode to output detected times and index numbers"
+    echo "    -n=x Index number for midpoint. You will pick this after running test"
+    echo "    -b=x 0.0-0.9 black depth threshold. 0.0-0.2 should cut it. default 0.0"
+    echo "    -l=x seconds for black duration 0.0-99. 0.3-0.7 should cut it. default 0.5"
     echo "    Requires ffmpeg"
-    echo "    Use Test to see outputs. Should be 12 minimum numbers"
-    echo "    Adjust blackdetect & pix_th if you dont get 12 or more numbers"
-    echo "    Point to a source directoy. Must have \/\" at end of path."
+    echo "    Use test to see outputs. Should be 12 minimum numbers"
+    echo "    Adjust black duration & threshold if you dont get 12 or more numbers"
     echo "    Will output files to current directory if permissions to write exist."
     echo "    Cuts may not be perfect. It is all best guess."
     echo ""
     }
 
-#if [[ "$showdir" = "?" ]]
-#then
-#echo "Directory is not valid"
-#help_screen
-#exit 1
-#fi
 
+convertsecs() {
 
-
-
-if [[ ! -d "$showdir" ]]
+if [[ $1 =~ \. ]];
 then
-echo "Directory is not valid"
+  wholesec=$(echo ${1} | cut -f1 -d.)
+  millisec=$(echo ${1} | cut -f2 -d.)
+else
+  wholesec=$(echo ${1} | cut -f1 -d.)
+  millisec=0
+fi
+
+ ((h=${wholesec}/3600))
+ ((m=(${wholesec}%3600)/60))
+ ((s=${wholesec}%60))
+ printf "%02d:%02d:%02d.$millisec\n" $h $m $s
+}
+
+
+
+if [[ -d "$showdir" ]]
+ then
+    type=directory
+elif [[ -f "$showdir" ]]
+ then
+    type=file
+else
+echo "$showdir is not a valid file or path"
 help_screen
 exit 1
 fi
+
 
 if [[ ! -x "$PWD" ]]
 then
 echo "cannot write to $PWD"
 exit 1
-fi
-
-
-if [ "$testvar" = "test" ]
-then
-##Run this to test out the show in question to see how detection goes. 12 numbers is perfect. less than 12 is bad.
-for show in "$showdir"*
-do
-echo $show
-ffmpeg -i "$show" -vf blackdetect=d=0.5:pix_th=.1 -an -f null - 2>&1 | grep 'Duration\|blackdetect' | sed 's/.*black_start:\(\S*\).*black_end:\(\S*\).*black_duration:\(\S*\).*/\1 \2 \3/;s/Duration: / /;s/, start: / /;s/, bitrate: / /;s/ kb\/s/ /' | tr '\n' ' '
-echo -n ""
-done
-echo "There should be more than 12 elements. If not, adjust the black detection in the script"
-exit 0
 fi
 
 
@@ -93,11 +116,8 @@ episode2="${BASH_REMATCH[4]}"
 
 echo $show
 
-#detect episodes. you should run the next line on a single episode to test detection.
-#adjust d=0.5 to be how long the black spaces between shows are.
-#adjust pix_th=.1 from 0.0 to 0.2 to change black detection. Different shows work differently.
 
-episodetimes=`ffmpeg -i "$show" -vf blackdetect=d=0.5:pix_th=.1 -an -f null - 2>&1 | grep 'Duration\|blackdetect' | sed 's/.*black_start:\(\S*\).*black_end:\(\S*\).*black_duration:\(\S*\).*/\1 \2 \3/;s/Duration: / /;s/, start: / /;s/, bitrate: / /;s/ kb\/s/ /' | tr '\n' ' '`
+episodetimes=`ffmpeg -i "$show" -vf blackdetect=d=$blackduration:pix_th=$blackthreshold -an -f null - 2>&1 | grep 'Duration\|blackdetect' | sed 's/.*black_start:\(\S*\).*black_end:\(\S*\).*black_duration:\(\S*\).*/\1 \2 \3/;s/Duration: / /;s/, start: / /;s/, bitrate: / /;s/ kb\/s/ /' | tr '\n' ' '`
 
 #Create times into array
 breaktimes=( $episodetimes )
@@ -128,7 +148,7 @@ fi
 #If breaks are correct, assign to final array
 if [ $breakcount -eq 12 ]
 then 
-echo "correct num of breaks"
+echo "Correct number of black segments found"
 finalarray=("${breaktimes[@]}")
 fi
 
@@ -137,7 +157,7 @@ fi
 if [ $breakcount -gt 12 ]
 then
 
-echo "more than 3 breaks"
+echo "more than 3 black segments found"
 #Find opening credits. First scene to be longer than 15 seconds
 
 #Establishes start time of 0 seconds. Increments by 3, so skips over first 3 tokens
@@ -220,6 +240,16 @@ ep2blackdur=${finalarray[11]}
 #echo "$ep2blackend"
 #echo "$ep2blackdur"
 
+if [  "$testvar" = "test" ]
+then
+echo "Opening: 00:00:00 - $(convertsecs $openingstartblack), Ep1: 00:00:00 - $(convertsecs $ep1blackstart), Ep2: $(convertsecs $ep1blackend) - $totaltime, Closing: $(convertsecs $ep2blackend) - $totaltime"
+echo ""
+fi
+
+
+
+if [ ! "$testvar" = "test" ]
+then
 #Extract Opening Credits
 ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack -c copy "opening.$extension"
 
@@ -251,4 +281,7 @@ rm "closing.$extension"
 rm "firstep.$extension"
 rm "secondep.$extension"
 rm merge.txt
+
+fi
+
 done
