@@ -12,6 +12,12 @@ fi
 #default values
 blackduration="0.5"
 blackthreshold="0.0"
+function=split
+
+if [ -z "$*" ]
+then
+function=help
+fi
 
 for z in "$@"
 do
@@ -20,9 +26,29 @@ case $z in
     showdir="${z#*=}"
     shift # past argument=value
     ;;
-    --test)
-    testvar=test
+    --split)
+    function=split
     shift # past argument with no value
+    ;;
+    --index)
+    function=index
+    shift # past argument with no value
+    ;;
+    --indexfull)
+    function=indexfull
+    shift # past argument with no value
+    ;;
+    --test)
+    function=testrun
+    shift # past argument with no value
+    ;;
+    --examples)
+    function=example
+    shift # past argument with no value
+    ;;
+    -m=*)
+    midindex="${z#*=}"
+    shift # past argument=value
     ;;
     -l=*)
     blackduration="${z#*=}"
@@ -33,11 +59,10 @@ case $z in
     shift # past argument=value
     ;;
     *)
-          # unknown option
+    function=help # unknown option
     ;;
 esac
 done
-
 
 help_screen() {
     echo ""
@@ -46,20 +71,66 @@ help_screen() {
     echo "    This is mostly designed because of many kids shows having 2 parts in 1 episode."
     echo "    but TVDB admins refuse to accept that and make each episode separate"
     echo ""
+    echo "    Episodes must be named  \"Show Name - SxxExxExx.ext\""
     echo "    Example usage: ./episide_splitter.sh -p=\"/path/to/dir/\" [--test]"
     echo "    Arguments:"
-    echo "    -p=\"/path/to/dir\"  What dir containts the show. include quotes and trailing /"
+    echo "    -p=\"/path/to/dir\"  Path to single or multiple files"
+    echo "    must include include quotes and trailing / for directories"
+    echo "    eg - \"/path/to/dir/\" or \"/path/to/file.exe\""
     echo "    --test  Enables test mode to output detected times and index numbers"
-    echo "    -n=x Index number for midpoint. You will pick this after running test"
+    echo "    --index  provides the index numbers for black parts the file/files. Cannot be used with test or split"
+    echo "    --indexfull like index, but provides all the numbers, start,end,length of black parts"
+    echo "    --split  default value. not needed Cannot be used with test or index"
+#    echo "    -m=x Index number for midpoint. You will pick this after running index"
+#    echo "         This only works on a single episode"    
     echo "    -b=x 0.0-0.9 black depth threshold. 0.0-0.2 should cut it. default 0.0"
     echo "    -l=x seconds for black duration 0.0-99. 0.3-0.7 should cut it. default 0.5"
+    echo "    --examples  Displays examples of commands"
     echo "    Requires ffmpeg"
     echo "    Use test to see outputs. Should be 12 minimum numbers"
     echo "    Adjust black duration & threshold if you dont get 12 or more numbers"
     echo "    Will output files to current directory if permissions to write exist."
     echo "    Cuts may not be perfect. It is all best guess."
     echo ""
+exit
     }
+
+
+if [  "$function" = "example" ]
+then
+echo "    Examples of commands:"
+echo ""
+echo "    Split a folder of episodes:"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\""
+echo ""
+echo "    Split a single episode:"
+echo "    ./episode_splitter.sh \"/tvshows/show name/show name.ext\""
+echo ""
+echo "    Split a single episode:"
+echo "    ./episode_splitter.sh \"/tvshows/show name/show name.ext\""
+echo ""
+echo "    Test a folder to see how each episode would process:"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" --test"
+echo ""
+echo "    List indexes of each black segment to force an episode split at a certain time point"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" --index"
+echo ""
+echo "    List full index information of each black segment start, stop, duration"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" --index"
+echo ""
+echo "    Override the default black depth. check ffmpeg documention"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" -b=0.2"
+echo ""
+echo "    Override the black length. check ffmpeg documention"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\"  -l=0.3"
+fi
+
+
+if [  "$function" = "help" ]
+then
+help_screen
+fi
+
 
 
 convertsecs() {
@@ -78,6 +149,12 @@ fi
  ((s=${wholesec}%60))
  printf "%02d:%02d:%02d.$millisec\n" $h $m $s
 }
+
+gettimes(){
+
+ffmpeg -i "$1" -vf blackdetect=d=$2:pix_th=$3 -an -f null - 2>&1 | grep 'Duration\|blackdetect' | sed 's/.*black_start:\(\S*\).*black_end:\(\S*\).*black_duration:\(\S*\).*/\1 \2 \3/;s/Duration: / /;s/, start: / /;s/, bitrate: / /;s/ kb\/s/ /' | tr '\n' ' '
+}
+
 
 
 
@@ -109,21 +186,54 @@ extension="${filename##*.}"
 filename="${filename%.*}"
 showpattern='(.+)(S[0-9]+)(E[0-9]+)(E[0-9]+)(.*)'
 [[ $filename =~ $showpattern ]]
+if [[ $? != 0 ]]
+then
+echo "$show has an invalid file name"
+echo "Episode must be named  \"Show Name - SxxExxExx.ext\""
+continue
+fi
+
 showname="${BASH_REMATCH[1]}"
 season="${BASH_REMATCH[2]}"
 episode1="${BASH_REMATCH[3]}"
 episode2="${BASH_REMATCH[4]}"
 
-echo $show
 
-
-episodetimes=`ffmpeg -i "$show" -vf blackdetect=d=$blackduration:pix_th=$blackthreshold -an -f null - 2>&1 | grep 'Duration\|blackdetect' | sed 's/.*black_start:\(\S*\).*black_end:\(\S*\).*black_duration:\(\S*\).*/\1 \2 \3/;s/Duration: / /;s/, start: / /;s/, bitrate: / /;s/ kb\/s/ /' | tr '\n' ' '`
+episodetimes=`gettimes "$show" $blackduration $blackthreshold`
 
 #Create times into array
 breaktimes=( $episodetimes )
 
 #Count array elemets
 breakcount=${#breaktimes[@]}
+
+if [  "$function" = "index" ]
+then
+echo "$show"
+v=3
+while [ $v -lt $breakcount ]
+do
+echo -n "index $v: $(convertsecs ${breaktimes[v]}) "
+((v=v+3))
+done
+echo ""
+continue
+fi
+
+if [  "$function" = "indexfull" ]
+then
+echo "$show"
+v=3
+while [ $v -lt $breakcount ]
+do
+echo -n "index $v: $(convertsecs ${breaktimes[v]}) "
+((v=v+1))
+done
+echo ""
+continue
+fi
+
+
 
 #assign known elements to variables
 totaltime=${breaktimes[0]}
@@ -132,7 +242,7 @@ bitrate=${breaktimes[2]}
 
 if [ $breakcount -lt 12 ]
 then 
-echo "element count too low"
+echo "$show - element count too low - episode not trimmable"
 continue
 fi
 
@@ -140,7 +250,7 @@ fi
 n=`expr $breakcount % 3`
 if [ $n -ne 0 ]
 then
-echo "element count not multiple of 3"
+echo "$show - element count not multiple of 3 - episode not trimmable"
 continue
 fi
 
@@ -148,7 +258,7 @@ fi
 #If breaks are correct, assign to final array
 if [ $breakcount -eq 12 ]
 then 
-echo "Correct number of black segments found"
+msg="Correct number of black segments found"
 finalarray=("${breaktimes[@]}")
 fi
 
@@ -157,7 +267,7 @@ fi
 if [ $breakcount -gt 12 ]
 then
 
-echo "more than 3 black segments found"
+msg="more than 3 black segments found"
 #Find opening credits. First scene to be longer than 15 seconds
 
 #Establishes start time of 0 seconds. Increments by 3, so skips over first 3 tokens
@@ -166,9 +276,7 @@ oplength=0
 until [ $oplength -gt "15" ]
 do 
 ((i=i+3))
-#echo "i: $i"
 oplength=`echo ${breaktimes[$i]} | sed 's/\([0-9]\+\)\.[0-9]\+/\1/'`
-#echo "oplength: $oplength"
 done
 
 
@@ -181,10 +289,8 @@ endlength=0
 until [ $endlength -gt "15" ]
 do 
 ((j=j-3))
-#echo "j: $j"
 endblackstart=`echo ${breaktimes[$j]} | sed 's/\([0-9]\+\)\.[0-9]\+/\1/'`
 endlength=$((totaltimesec - endblackstart))
-#echo "endlength: $endlength"
 done
 
 
@@ -227,29 +333,19 @@ ep2blackstart=${finalarray[9]}
 ep2blackend=${finalarray[10]}
 ep2blackdur=${finalarray[11]}
 
-#echo "$totaltime"
-#echo "$starttime"
-#echo "$bitrate"
-#echo "$openingstartblack"
-#echo "$openingendblack"
-#echo "$openingduration"
-#echo "$ep1blackstart"
-#echo "$ep1blackend"
-#echo "$ep1blackdur"
-#echo "$ep2blackstart"
-#echo "$ep2blackend"
-#echo "$ep2blackdur"
 
-if [  "$testvar" = "test" ]
+if [  "$function" = "testrun" ]
 then
+echo "$show - $msg"
 echo "Opening: 00:00:00 - $(convertsecs $openingstartblack), Ep1: 00:00:00 - $(convertsecs $ep1blackstart), Ep2: $(convertsecs $ep1blackend) - $totaltime, Closing: $(convertsecs $ep2blackend) - $totaltime"
 echo ""
 fi
 
 
 
-if [ ! "$testvar" = "test" ]
+if [  "$function" = "split" ]
 then
+echo "$show - $msg"
 #Extract Opening Credits
 ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack -c copy "opening.$extension"
 
