@@ -16,12 +16,19 @@ must include include quotes and trailing / for directories
 eg - "/path/to/dir/" or "/path/to/file.exe"
 
 --test  Enables test mode to output detected times and index numbers
+
 --index  provides the index numbers for black parts the file/files. Cannot be used with test or split
+
 --indexfull like index, but provides all the numbers, start,end,length of black parts
+
 --split  default value. not needed Cannot be used with test or index
+
 -m=x Index number for midpoint. You will pick this after running index (This only works on a single episode)
+
 -b=x 0.0-0.9 black depth threshold. 0.0-0.2 should cut it. default 0.0
+
 -l=x seconds for black duration 0.0-99.0. 0.3-0.7 should cut it. default 0.5
+
 --examples  Displays examples of commands
 
 Requires ffmpeg
