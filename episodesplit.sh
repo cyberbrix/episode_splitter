@@ -12,6 +12,7 @@ fi
 #default values
 blackduration="0.5"
 blackthreshold="0.0"
+midindex=unset
 function=split
 
 if [ -z "$*" ]
@@ -66,7 +67,7 @@ done
 
 help_screen() {
     echo ""
-    echo "    This script will split an episode into 2 parts, keeping the opening and closing creditgs."
+    echo "    This script will split an episode into 2 parts, keeping the opening and closing credits."
     echo "    It will append the opening and closing to the appropriate missing piece."
     echo "    This is mostly designed because of many kids shows having 2 parts in 1 episode."
     echo "    but TVDB admins refuse to accept that and make each episode separate"
@@ -81,10 +82,10 @@ help_screen() {
     echo "    --index  provides the index numbers for black parts the file/files. Cannot be used with test or split"
     echo "    --indexfull like index, but provides all the numbers, start,end,length of black parts"
     echo "    --split  default value. not needed Cannot be used with test or index"
-#    echo "    -m=x Index number for midpoint. You will pick this after running index"
-#    echo "         This only works on a single episode"    
+    echo "    -m=x Index number for midpoint. You will pick this after running index"
+    echo "         This only works on a single episode"    
     echo "    -b=x 0.0-0.9 black depth threshold. 0.0-0.2 should cut it. default 0.0"
-    echo "    -l=x seconds for black duration 0.0-99. 0.3-0.7 should cut it. default 0.5"
+    echo "    -l=x seconds for black duration 0.0-99.0. 0.3-0.7 should cut it. default 0.5"
     echo "    --examples  Displays examples of commands"
     echo "    Requires ffmpeg"
     echo "    Use test to see outputs. Should be 12 minimum numbers"
@@ -122,7 +123,7 @@ echo "    Override the default black depth. check ffmpeg documention"
 echo "    ./episode_splitter.sh \"/tvshows/show name/\" -b=0.2"
 echo ""
 echo "    Override the black length. check ffmpeg documention"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\"  -l=0.3"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" -l=0.3"
 fi
 
 
@@ -156,8 +157,6 @@ ffmpeg -i "$1" -vf blackdetect=d=$2:pix_th=$3 -an -f null - 2>&1 | grep 'Duratio
 }
 
 
-
-
 if [[ -d "$showdir" ]]
  then
     type=directory
@@ -170,6 +169,13 @@ help_screen
 exit 1
 fi
 
+#check if midpoint is being used on a directory
+if [ "$type" = "directory" ] && [ ! "$midindex" = "unset" ]
+then
+echo "Cannot set a midpoint on directory listing"
+exit 1
+fi
+
 
 if [[ ! -x "$PWD" ]]
 then
@@ -177,6 +183,34 @@ echo "cannot write to $PWD"
 exit 1
 fi
 
+
+#Validate inputs - blackduration, depth, midpoint
+bdpattern='^([0-9]){1,2}\.([0-9]){1,2}$'
+[[ $blackduration =~ $bdpattern ]]
+if [[ $? != 0 ]]
+then
+echo "black duration ($blackduration) not valid."
+help_screen
+exit 1
+fi
+
+btpattern='^0\.([0-9]){1,2}$'
+[[ $blackthreshold =~ $bdpattern ]]
+if [[ $? != 0 ]]
+then
+echo "black depth threshold ($blackthreshold) not valid."
+help_screen
+exit 1
+fi
+
+if [ ! "$midindex" = "unset" ]
+then
+indexpattern='^([0-9]){1,2}$'
+[[ $midindex =~ $indexpattern ]]
+echo "Index number ($midindex) not valid."
+help_screen
+exit 1
+fi
 
 
 for show in "$showdir"*
@@ -318,6 +352,15 @@ fi
 
 k=$(($k + 3))
 done
+
+echo "midindex: $midindexnum"
+if [ ! "$midindex" = "unset" ]
+then
+midindexnum=$midindex
+fi
+
+echo "updated midindex: $midindexnum"
+exit
 
 finalarray=( "${breaktimes[@]:0:3}" "${breaktimes[@]:$i:3}" "${breaktimes[@]:$midindexnum:3}" "${breaktimes[@]:$j:3}")
 fi
