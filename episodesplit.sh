@@ -126,7 +126,6 @@ echo "    Override the black length. check ffmpeg documention"
 echo "    ./episode_splitter.sh \"/tvshows/show name/\" -l=0.3"
 fi
 
-
 if [  "$function" = "help" ]
 then
 help_screen
@@ -359,8 +358,8 @@ then
 midindexnum=$midindex
 fi
 
-echo "updated midindex: $midindexnum"
-exit
+#echo "updated midindex: $midindexnum"
+#exit
 
 finalarray=( "${breaktimes[@]:0:3}" "${breaktimes[@]:$i:3}" "${breaktimes[@]:$midindexnum:3}" "${breaktimes[@]:$j:3}")
 fi
