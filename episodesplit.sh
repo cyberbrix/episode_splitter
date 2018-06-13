@@ -352,7 +352,7 @@ fi
 k=$(($k + 3))
 done
 
-echo "midindex: $midindexnum"
+#echo "midindex: $midindexnum"
 if [ ! "$midindex" = "unset" ]
 then
 midindexnum=$midindex
@@ -389,30 +389,30 @@ if [  "$function" = "split" ]
 then
 echo "$show - $msg"
 #Extract Opening Credits
-ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack -c copy "opening.$extension"
+ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack "opening.$extension"
 
 #Extract Closing Credits
-ffmpeg -nostdin -loglevel quiet -ss $ep2blackend -i "$show" -c copy "closing.$extension"
+ffmpeg -nostdin -loglevel quiet -ss $ep2blackend -i "$show" "closing.$extension"
 
 #Create first segment. (Missing end credits)
-ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $ep1blackstart -c copy "firstep.$extension"
+ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $ep1blackstart "firstep.$extension"
 
 #Create second segment (Missing opening credits)
-ffmpeg -nostdin -loglevel quiet -ss $ep1blackend -i "$show" -c copy "secondep.$extension"
+ffmpeg -nostdin -loglevel quiet -ss $ep1blackend -i "$show" "secondep.$extension"
 
 #Create merge file
 echo "file firstep.$extension" > merge.txt
 echo "file closing.$extension" >> merge.txt
 
 #Create first proper episode
-ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt -c copy "$showname$season$episode1.$extension"
+ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode1.$extension"
 
 #Create merge file
 echo "file opening.$extension" > merge.txt
 echo "file secondep.$extension" >> merge.txt
 
 #Create second proper episode
-ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt -c copy "$showname$season$episode2.$extension"
+ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode2.$extension"
 
 rm "opening.$extension"
 rm "closing.$extension"
