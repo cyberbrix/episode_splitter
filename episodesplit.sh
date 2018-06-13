@@ -206,11 +206,13 @@ if [ ! "$midindex" = "unset" ]
 then
 indexpattern='^([0-9]){1,2}$'
 [[ $midindex =~ $indexpattern ]]
+if [[ $? != 0 ]]
+then
 echo "Index number ($midindex) not valid."
 help_screen
 exit 1
 fi
-
+fi
 
 for show in "$showdir"*
 do
@@ -352,14 +354,11 @@ fi
 k=$(($k + 3))
 done
 
-#echo "midindex: $midindexnum"
 if [ ! "$midindex" = "unset" ]
 then
 midindexnum=$midindex
 fi
 
-#echo "updated midindex: $midindexnum"
-#exit
 
 finalarray=( "${breaktimes[@]:0:3}" "${breaktimes[@]:$i:3}" "${breaktimes[@]:$midindexnum:3}" "${breaktimes[@]:$j:3}")
 fi
@@ -406,6 +405,8 @@ echo "file closing.$extension" >> merge.txt
 
 #Create first proper episode
 ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode1.$extension"
+ffresult=$?
+echo "Result: $ffresult"
 
 #Create merge file
 echo "file opening.$extension" > merge.txt
@@ -413,6 +414,10 @@ echo "file secondep.$extension" >> merge.txt
 
 #Create second proper episode
 ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode2.$extension"
+ffresult=$?
+echo "Result: $ffresult"
+
+
 
 rm "opening.$extension"
 rm "closing.$extension"
