@@ -5,4 +5,5 @@
 -fixed bug where test function broke
 -removed comments
 -added changelog
-
+-added ffmpeg non-zero error message when writing episode files
+-added some wording to the "not trimmable" message

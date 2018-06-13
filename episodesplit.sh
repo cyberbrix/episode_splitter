@@ -277,7 +277,7 @@ bitrate=${breaktimes[2]}
 
 if [ $breakcount -lt 12 ]
 then 
-echo "$show - element count too low - episode not trimmable"
+echo "$show - element count too low - episode not trimmable. Check black depth, then length"
 continue
 fi
 
@@ -285,7 +285,7 @@ fi
 n=`expr $breakcount % 3`
 if [ $n -ne 0 ]
 then
-echo "$show - element count not multiple of 3 - episode not trimmable"
+echo "$show - element count not multiple of 3 - episode not trimmable.Check black depth, then length"
 continue
 fi
 
@@ -388,16 +388,46 @@ if [  "$function" = "split" ]
 then
 echo "$show - $msg"
 #Extract Opening Credits
-ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack "opening.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack "opening.$extension"
+if [[ $? != 0 ]]
+then
+echo "error writing $show opening credits"
+echo "moving on to next file"
+continue
+fi
+
 
 #Extract Closing Credits
-ffmpeg -nostdin -loglevel quiet -ss $ep2blackend -i "$show" "closing.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss $ep2blackend -i "$show" "closing.$extension"
+if [[ $? != 0 ]]
+then
+echo "error writing $show closing credits"
+echo "moving on to next file"
+continue
+fi
+
+
 
 #Create first segment. (Missing end credits)
-ffmpeg -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $ep1blackstart "firstep.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $ep1blackstart "firstep.$extension"
+if [[ $? != 0 ]]
+then
+echo "error writing $show first segment"
+echo "moving on to next file"
+continue
+fi
+
 
 #Create second segment (Missing opening credits)
-ffmpeg -nostdin -loglevel quiet -ss $ep1blackend -i "$show" "secondep.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss $ep1blackend -i "$show" "secondep.$extension"
+if [[ $? != 0 ]]
+then
+echo "error writing $show second segment"
+echo "moving on to next file"
+continue
+fi
+
+
 
 #Create merge file
 echo "file firstep.$extension" > merge.txt
@@ -405,8 +435,10 @@ echo "file closing.$extension" >> merge.txt
 
 #Create first proper episode
 ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode1.$extension"
-ffresult=$?
-echo "Result: $ffresult"
+if [[ $? != 0 ]]
+then
+echo "error writing $showname$season$episode1.$extension"
+fi
 
 #Create merge file
 echo "file opening.$extension" > merge.txt
@@ -414,10 +446,10 @@ echo "file secondep.$extension" >> merge.txt
 
 #Create second proper episode
 ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode2.$extension"
-ffresult=$?
-echo "Result: $ffresult"
-
-
+if [[ $? != 0 ]]
+then
+echo "error writing $showname$season$episode2.$extension"
+fi
 
 rm "opening.$extension"
 rm "closing.$extension"
