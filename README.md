@@ -45,35 +45,35 @@ MORE EXAMPLES:
 
 Split a folder of episodes:
 
-./episode_splitter.sh "/tvshows/show name/"
+./episode_splitter.sh -p="/tvshows/show name/"
 
 Split a single episode:
 
-./episode_splitter.sh "/tvshows/show name/show name.ext"
+./episode_splitter.sh -p="/tvshows/show name/show name.ext"
 
 Split a single episode:
 
-./episode_splitter.sh "/tvshows/show name/show name.ext"
+./episode_splitter.sh -p="/tvshows/show name/show name.ext"
 
 Test a folder to see how each episode would process:
 
-./episode_splitter.sh "/tvshows/show name/" --test
+./episode_splitter.sh -p="/tvshows/show name/" --test
 
 List indexes of each black segment to force an episode split at a certain time point
 
-./episode_splitter.sh "/tvshows/show name/" --index
+./episode_splitter.sh -p="/tvshows/show name/" --index
 
 List full index information of each black segment start, stop, duration
 
-./episode_splitter.sh "/tvshows/show name/" --index
+./episode_splitter.sh -p="/tvshows/show name/" --index
 
 Override the default black depth. check ffmpeg documention
 
-./episode_splitter.sh "/tvshows/show name/" -b=0.2
+./episode_splitter.sh -p="/tvshows/show name/" -b=0.2
 
 Override the black length. check ffmpeg documention
 
-./episode_splitter.sh "/tvshows/show name/" -l=0.3
+./episode_splitter.sh -p="/tvshows/show name/" -l=0.3
 
 
 Instructions
