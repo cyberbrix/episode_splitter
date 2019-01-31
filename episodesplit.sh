@@ -14,6 +14,7 @@ blackduration="0.5"
 blackthreshold="0.0"
 midindex=unset
 function=split
+codeccopy=unset
 
 if [ -z "$*" ]
 then
@@ -59,6 +60,10 @@ case $z in
     blackthreshold="${z#*=}"
     shift # past argument=value
     ;;
+    -c=*)
+    c="${z#*=}"
+    shift # past argument=value
+    ;;
     *)
     function=help # unknown option
     ;;
@@ -73,11 +78,13 @@ help_screen() {
     echo "    but TVDB admins refuse to accept that and make each episode separate"
     echo ""
     echo "    Episodes must be named  \"Show Name - SxxExxExx.ext\""
-    echo "    Example usage: ./episide_splitter.sh -p=\"/path/to/dir/\" [--test]"
+    echo "    Example usage: ./episide_splitter.sh -p=\"/path/to/dir/\" [-c=action] [--test]"
     echo "    Arguments:"
     echo "    -p=\"/path/to/dir\"  Path to single or multiple files"
     echo "    must include include quotes and trailing / for directories"
     echo "    eg - \"/path/to/dir/\" or \"/path/to/file.exe\""
+    echo "    -c= [c or r] c is copy. r is remux. depending on your version of ffmpeg, you may either have to copy or remux"
+    echo "      Copy may not cut perfectly on black spots, remux may not work if the version of ffmepg cant read the codec well"
     echo "    --test  Enables test mode to output detected times and index numbers"
     echo "    --index  provides the index numbers for black parts the file/files. Cannot be used with test or split"
     echo "    --indexfull like index, but provides all the numbers, start,end,length of black parts"
@@ -101,29 +108,26 @@ if [  "$function" = "example" ]
 then
 echo "    Examples of commands:"
 echo ""
-echo "    Split a folder of episodes:"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\""
+echo "    Split a folder of episodes: (ffmpeg copy)"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" -c=c"
 echo ""
-echo "    Split a single episode:"
-echo "    ./episode_splitter.sh \"/tvshows/show name/show name.ext\""
-echo ""
-echo "    Split a single episode:"
-echo "    ./episode_splitter.sh \"/tvshows/show name/show name.ext\""
+echo "    Split a single episode: (ffmpeg remux)"
+echo "    ./episode_splitter.sh \"/tvshows/show name/show name.ext\" -c=r"
 echo ""
 echo "    Test a folder to see how each episode would process:"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\" --test"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" --test "
 echo ""
 echo "    List indexes of each black segment to force an episode split at a certain time point"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\" --index"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" --index -c=c"
 echo ""
 echo "    List full index information of each black segment start, stop, duration"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\" --index"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" --index  -c=c"
 echo ""
 echo "    Override the default black depth. check ffmpeg documention"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\" -b=0.2"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" -b=0.2  -c=r"
 echo ""
 echo "    Override the black length. check ffmpeg documention"
-echo "    ./episode_splitter.sh \"/tvshows/show name/\" -l=0.3"
+echo "    ./episode_splitter.sh \"/tvshows/show name/\" -l=0.3 -c=c"
 fi
 
 if [  "$function" = "help" ]
@@ -156,6 +160,7 @@ ffmpeg -i "$1" -vf blackdetect=d=$2:pix_th=$3 -an -f null - 2>&1 | grep 'Duratio
 }
 
 
+#Checks if file or directory
 if [[ -d "$showdir" ]]
  then
     type=directory
@@ -167,6 +172,27 @@ echo "$showdir is not a valid file or path"
 help_screen
 exit 1
 fi
+
+
+#Validates if remux or copy
+if [[ $c = "c" ]]
+ then
+    codeccopy="-c copy"
+elif [[ $c = "r" ]]
+ then
+   codeccopy=" "
+fi
+
+
+if [ "$function" = "split" ] && [ ! "$codeccopy" = "unset" ]
+then
+echo "ffmpeg action (-c) not set properly."
+help_screen
+exit 1
+fi
+
+
+
 
 #check if midpoint is being used on a directory
 if [ "$type" = "directory" ] && [ ! "$midindex" = "unset" ]
@@ -386,9 +412,12 @@ fi
 
 if [  "$function" = "split" ]
 then
+
 echo "$show - $msg"
+
+
 #Extract Opening Credits
-ffmpeg -y -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack "opening.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $openingstartblack $codeccopy "opening.$extension"
 if [[ $? != 0 ]]
 then
 echo "error writing $show opening credits"
@@ -398,7 +427,7 @@ fi
 
 
 #Extract Closing Credits
-ffmpeg -y -nostdin -loglevel quiet -ss $ep2blackend -i "$show" "closing.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss $ep2blackend -i "$show"  $codeccopy "closing.$extension"
 if [[ $? != 0 ]]
 then
 echo "error writing $show closing credits"
@@ -409,7 +438,7 @@ fi
 
 
 #Create first segment. (Missing end credits)
-ffmpeg -y -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $ep1blackstart "firstep.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss 00:00:00 -i "$show" -t $ep1blackstart  $codeccopy "firstep.$extension"
 if [[ $? != 0 ]]
 then
 echo "error writing $show first segment"
@@ -419,7 +448,7 @@ fi
 
 
 #Create second segment (Missing opening credits)
-ffmpeg -y -nostdin -loglevel quiet -ss $ep1blackend -i "$show" "secondep.$extension"
+ffmpeg -y -nostdin -loglevel quiet -ss $ep1blackend -i "$show"  $codeccopy "secondep.$extension"
 if [[ $? != 0 ]]
 then
 echo "error writing $show second segment"
@@ -434,7 +463,7 @@ echo "file firstep.$extension" > merge.txt
 echo "file closing.$extension" >> merge.txt
 
 #Create first proper episode
-ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode1.$extension"
+ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt $codeccopy "$showname$season$episode1.$extension"
 if [[ $? != 0 ]]
 then
 echo "error writing $showname$season$episode1.$extension"
@@ -445,7 +474,7 @@ echo "file opening.$extension" > merge.txt
 echo "file secondep.$extension" >> merge.txt
 
 #Create second proper episode
-ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt "$showname$season$episode2.$extension"
+ffmpeg -nostdin -loglevel quiet -f concat -i merge.txt $codeccopy "$showname$season$episode2.$extension"
 if [[ $? != 0 ]]
 then
 echo "error writing $showname$season$episode2.$extension"
